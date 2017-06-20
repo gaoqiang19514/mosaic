@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>testCanvas</title>
+    <style>
+        button{
+            padding: 0;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+            background: none;
+            border: none;
+            outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        .button{
+            display: inline-block;
+            padding: 0 16px;
+            font-size: 14px;
+            line-height: 32px;
+            color: #8590a6;
+            text-align: center;
+            cursor: pointer;
+            background: none;
+            border: 1px solid #ccd8e1;
+            /*border-radius: 3px;*/
+        }
+        .button--blue{
+            color: #fff;
+            border: 1px solid #0f88eb;
+            background: #0f88eb;
+        }
+
+        .mask{
+            position: fixed;
+            z-index: 9998;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, .5);
+            display: table;
+            transition: opacity .3s ease;
+        }
+
+        .mask__wrapper{
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .mask__container{
+            position: relative;
+            margin: 0px auto;
+        }
+
+        .mask__save{
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+        .mask__cancel{
+            position: absolute;
+            top: 34px;
+            right: 0;
+        }
+        
+        .mosaic__container{
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .mosaic__item{
+            position: relative;
+            width: 220px;
+            height: 100px;
+            overflow: hidden;
+        }
+        .mosaic__canvas{
+            max-width: 100%;
+        }
+        .mosaic__edit{
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+        .mosaic__upload{
+            position: absolute;
+            right: 62px;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" class="mosaic__input">   
+    <div class="mosaic__container"></div> 
+    
+
+<script src="js/jquery-1.9.1.js"></script>
+<script>
+    $(function(){
+        function Mosaic(options){
+            var defaults = {
+
+            };
+
+            this.settings = $.extend({}, defaults, options);
+
+            this.pressed = false;
+            this.singleWidth = 10;
+            this.singleWidth = 10;
+            this.maxWidth = 0;
+            this.maxHeight = 0;
+            this.$input = $(this.settings.input);
+            this.$container = $(this.settings.container);
+
+            this.$mask = $('<div id="mask" class="mask">' +
+                            '<div class="mask__wrapper">' +
+                                '<div class="mask__container">' +
+                                    '<button class="button button--blue mask__cancel">取消</button>' +
+                                    '<button class="button button--blue mask__save">保存</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>');
+
+            this.init();
+        }
+        Mosaic.prototype = {
+            init: function(){
+                this.initEvents();
+            },
+            initEvents: function(){
+                var _this = this;
+
+                this.$input.on("change", function(e){
+                    _this.readImage(e);
+                });
+
+                // 给编辑按钮绑定处理事件
+                this.$container.on("click", ".mosaic__edit", function(e){
+                    
+                    var $canvas = $(this).parent(".mosaic__item").find("canvas");
+                    var width = $canvas.attr("width");
+                    var height =$canvas.attr("height");
+
+                    var compressPos = _this.compressSize(width, height, $(window).width(), $(window).height());
+                    
+                    _this.viewMaks($canvas[0], compressPos.width, compressPos.height);
+                });
+            },
+            readImage: function(e){
+                var _this = this;
+                if(!window.FileReader){
+                    alert('您的浏览器不支持FileReader');
+                    return;
+                }
+
+                var file = e.target.files[0];
+                var reader = new FileReader();
+                reader.onload = function(e){
+                    var src = e.target.result;
+                    var img = new Image();
+                    img.onload = function(e){
+                        _this.maxWidth = this.width;
+                        _this.maxHeight = this.height;
+                        var compressPos = _this.compressSize(this.width, this.height, $(window).width(), $(window).height());
+                        _this.createCanvas(this, this.width, this.height, compressPos.width, compressPos.height);
+                    };
+                    img.src = src;
+                };
+                reader.readAsDataURL(file);
+            },
+            compressSize: function(width, height, maxWidth, maxHeight){
+                var scale = Math.min(maxWidth / width, maxHeight / height, 1);
+                var normal = scale < 1 ? 1.1 : 1;
+
+                return{
+                    width: parseInt(width * scale / normal),
+                    height: parseInt(height * scale / normal)
+                }
+            },
+            createCanvas: function(img, w, h, cW, cH){
+                var $item = $('<div class="mosaic__item">' +
+                                '<button class="button button--blue mosaic__edit">编辑</button>' +
+                                '<button class="button button--blue mosaic__upload">上传</button>' +
+                            '</div>');
+
+                canvas = document.createElement("canvas");
+                canvas.className = "mosaic__canvas";
+                canvas.width = w;
+                canvas.height = h;
+                // canvas.style.width = cW + "px";
+                // canvas.style.height = cH + "px";
+
+                this.$container.append($item.prepend(canvas));
+                var context = canvas.getContext("2d");
+                context.drawImage(img, 0, 0);
+            },
+            viewMaks: function(canvas, w, h){
+                var _this = this;
+                $("body").append(this.$mask);
+                $container = this.$mask.find(".mask__container");
+                $container.css({
+                    width: w,
+                    height: h
+                });
+
+                var newCanvas = this.cloneCanvas(canvas);
+                newCanvas.style.width = w + "px";
+                newCanvas.style.height = h + "px";
+                var context = newCanvas.getContext("2d");
+                $container.append(newCanvas);
+
+                var $canvas = $(newCanvas);
+                $canvas.on("mousedown", function(e){
+                    e.preventDefault();
+                    _this.pressed = true;
+                });
+
+                $canvas.on("mousemove", function(e){
+                    e.preventDefault();
+                    if(!_this.pressed){return;}
+                    var x = e.pageX - $(this).offset().left;
+                    var y = e.pageY - $(this).offset().top;
+
+                    // truth size
+                    var w = $(this).attr("width");
+                    var h = $(this).attr("height");
+                    // compress size
+                    var pw = parseInt($(this).css("width"));
+                    var ph = parseInt($(this).css("height"));
+                    var scale = w / pw;
+
+                    var indexData = {
+                        x: Math.ceil(x * scale / _this.singleWidth) * _this.singleWidth,
+                        y: Math.ceil(y * scale / _this.singleHeight) * _this.singleHeight
+                    };
+              
+                    var pos = _this.getHalfPos(indexData.x, indexData.y);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    
+                console.log(context);
+                    
+                    _this.drawMosaic(context, pos.x, pos.y);
+                });
+
+                $(document).on("mouseup", function(e){
+                    _this.pressed = false;
+                });
+
+                // 保存编辑的canvas
+                $container.on("click", ".mask__save", function(e){
+                    _this.$mask.remove();
+                    $(canvas).replaceWith($canvas);
+                });
+                $container.on("click", ".mask__cancel", function(e){
+                    _this.$mask.remove();
+                    $canvas.remove();
+                });
+            },
+            getHalfPos: function(x, y){
+                // 返回传入坐标的中心点
+                x = x - this.singleWidth / 2;
+                y = y - this.singleHeight / 2;
+                if(x < 0){x = 0;}
+                if(y < 0){y = 0;}
+                if((x + this.singleWidth) > this.maxWidth){
+                    x = this.maxWidth - this.singleWidth;
+                }
+                if((y + this.singleHeight) > this.maxHeight){
+                    y = this.maxHeight - this.singleHeight;
+                }
+                return {x: x, y: y}
+            },
+            drawMosaic: function(context, x, y){
+                // 这里的x y需要进行边缘限制
+                var imgData = context.getImageData(x, y, this.singleWidth, this.singleHeight);
+                for(var i = 0; i < imgData.data.length; i += 4) {
+                    red   += imgData.data[i];
+                    green += imgData.data[i + 1];
+                    blue  += imgData.data[i + 2];
+                    alpha += imgData.data[i + 3];
+                }
+
+                red   = red / (imgData.data.length / 4);        
+                green = green / (imgData.data.length / 4);      
+                blue  = blue / (imgData.data.length / 4);   
+                // alpha = alpha / (imgData.data.length / 4); 
+
+                for(var j = 0; j < imgData.data.length; j += 4) {
+                    imgData.data[j]     = red;
+                    imgData.data[j + 1] = green;
+                    imgData.data[j + 2] = blue;
+                    // imgData.data[j + 3] = alpha;
+                }
+
+                context.putImageData(imgData, x, y);
+            },
+            cloneCanvas: function(oldCanvas){
+                //create a new canvas
+                var newCanvas = document.createElement('canvas');
+                var context = newCanvas.getContext('2d');
+
+                //set dimensions
+                newCanvas.width = oldCanvas.width;
+                newCanvas.height = oldCanvas.height;
+
+                //apply the old canvas to the new one
+                context.drawImage(oldCanvas, 0, 0);
+
+                //return the new canvas
+                return newCanvas;
+            }
+
+            
+        };
+
+        new Mosaic({
+            input: ".mosaic__input",
+            container: ".mosaic__container"
+        });
+// -----------------------------------------------------------------------------------------------------------------------
+
+
+        // var $mask = $('<div id="mask" class="mask">' +
+        //     '<divm class="mask__wrapper">' +
+        //         '<div class="mask__container">' +
+        //             '<button class="button button--blue mask__cancel">取消</button>' +
+        //             '<button class="button button--blue mask__save">保存</button>' +
+        //         '</div>' +
+        //     '</divm>' +
+        // '</div>');
+
+        // var pressed = false, context, canvas,
+        //     red = 0,
+        //     green = 0,
+        //     blue = 0,
+        //     alpha = 0,
+        //     maxWidth,
+        //     maxHeight,
+        //     singleWidth = 10,
+        //     singleHeight = 10;
+
+        // function createCanvas(img, w, h, cW, cH){
+        //     canvas = document.createElement("canvas");
+        //     canvas.width = w;
+        //     canvas.height = h;
+        //     canvas.style.width = cW + "px";
+        //     canvas.style.height = cH + "px";
+        //     $("body").append(canvas);
+
+        //     context = canvas.getContext("2d");
+        //     context.drawImage(img, 0, 0);
+        // }
+
+        // function compressSize(width, height, maxWidth, maxHeight){
+        //     var scale = Math.min(maxWidth / width, maxHeight / height, 1);
+        //     var normal = scale < 1 ? 1.1 : 1;
+
+        //     return{
+        //         width: parseInt(width * scale / normal),
+        //         height: parseInt(height * scale / normal)
+        //     }
+        // }
+
+        // var img = new Image();
+        // img.onload = function(e){
+
+        //     var compressPos = compressSize(this.width, this.height, $(window).width(), $(window).height());
+
+        //     createCanvas(this, this.width, this.height, compressPos.width, compressPos.height);
+
+        //     maxWidth = width = this.width;
+        //     maxHeight = height = this.height;
+        //     init();
+        // };
+        // // img.src = "./img/1.jpg";
+
+        // function init(){
+        //     $('#edit').on("click", function(e){
+        //         var $canvas = $(this).parents("body").find("canvas");
+        //         viewMaks($canvas[0], $canvas.width(), $canvas.height());
+        //     });
+
+            // function viewMaks(canvas, w, h){
+            //     $("body").append($mask);
+            //     $container = $mask.find(".mask__container");
+            //     $container.css({
+            //         width: w,
+            //         height: h
+            //     });
+            //     var newCanvas = cloneCanvas(canvas);
+            //     newCanvas.style.width = w + "px";
+            //     newCanvas.style.height = h + "px";
+            //     var context = newCanvas.getContext("2d");
+            //     $container.append(newCanvas);
+
+            //     var $canvas = $(newCanvas);
+            //     $canvas.on("mousedown", function(e){
+            //         e.preventDefault();
+            //         pressed = true;
+            //     });
+
+            //     $canvas.on("mousemove", function(e){
+            //         e.preventDefault();
+            //         if(!pressed){return;}
+            //         var x = e.pageX - $(this).offset().left;
+            //         var y = e.pageY - $(this).offset().top;
+
+            //         // truth size
+            //         var w = $(this).attr("width");
+            //         var h = $(this).attr("height");
+            //         // compress size
+            //         var pw = parseInt($(this).css("width"));
+            //         var ph = parseInt($(this).css("height"));
+            //         var scale = w / pw;
+
+            //         var indexData = {
+            //             x: Math.ceil(x * scale / singleWidth) * singleWidth,
+            //             y: Math.ceil(y * scale / singleHeight) * singleHeight
+            //         };
+              
+            //         var pos = getHalfPos(indexData.x, indexData.y);
+            //         drawMosaic(context, pos.x, pos.y);
+            //     });
+
+            //     $(document).on("mouseup", function(e){
+            //         pressed = false;
+            //     });
+
+            //     // 保存编辑的canvas
+            //     $container.on("click", ".mask__save", function(e){
+            //         $mask.remove();
+            //         $(canvas).replaceWith($canvas);
+            //     });
+            //     $container.on("click", ".mask__cancel", function(e){
+            //         $mask.remove();
+            //         $canvas.remove();
+            //     });
+
+                
+            // }
+
+
+        //     function cloneCanvas(oldCanvas){
+        //         //create a new canvas
+        //         var newCanvas = document.createElement('canvas');
+        //         var context = newCanvas.getContext('2d');
+
+        //         //set dimensions
+        //         newCanvas.width = oldCanvas.width;
+        //         newCanvas.height = oldCanvas.height;
+
+        //         //apply the old canvas to the new one
+        //         context.drawImage(oldCanvas, 0, 0);
+
+        //         //return the new canvas
+        //         return newCanvas;
+        //     }
+
+        //     function drawMosaic(context, x, y){
+        //         // 这里的x y需要进行边缘限制
+        //         var imgData = context.getImageData(x, y, singleWidth, singleHeight);
+        //         for(var i = 0; i < imgData.data.length; i += 4) {
+        //             red   += imgData.data[i];
+        //             green += imgData.data[i + 1];
+        //             blue  += imgData.data[i + 2];
+        //             alpha += imgData.data[i + 3];
+        //         }
+
+        //         red   = red / (imgData.data.length / 4);        
+        //         green = green / (imgData.data.length / 4);      
+        //         blue  = blue / (imgData.data.length / 4);   
+        //         // alpha = alpha / (imgData.data.length / 4); 
+
+        //         for(var j = 0; j < imgData.data.length; j += 4) {
+        //             imgData.data[j]     = red;
+        //             imgData.data[j + 1] = green;
+        //             imgData.data[j + 2] = blue;
+        //             // imgData.data[j + 3] = alpha;
+        //         }
+
+        //         context.putImageData(imgData, x, y);
+        //     }
+
+        //     // 返回传入坐标的中心点
+        //     function getHalfPos(x, y){
+        //         x = x - singleWidth / 2;
+        //         y = y - singleHeight / 2;
+        //         if(x < 0){x = 0;}
+        //         if(y < 0){y = 0;}
+        //         if((x + singleWidth) > maxWidth){
+        //             x = maxWidth - singleWidth
+        //         }
+        //         if((y + singleHeight) > maxHeight){
+        //             y = maxHeight - singleHeight
+        //         }
+        //         return {x: x, y: y}
+        //     }
+
+        //     // 后续优化加入,生成矩阵点，如果当前坐标点的矩阵已经被绘制则将其置为true
+        //     // 这样可以用来阻止同一个的坐标点被重复绘制
+        //     function createArrPoints(width, height, singleWidth, singleHeight){
+        //         var arr = [];
+        //         var xNum = width / singleWidth;
+        //         var yNum = height / singleHeight;
+                
+        //         for(var i = 0; i < xNum; i++){
+        //             for(var j = 0; j < yNum; j++){
+        //                 arr.push(false);
+        //             }
+        //         }
+        //         return arr;
+        //     }
+        // }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Mosaic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            margin: 10px;
+        }
+
+        .box {
+            position: fixed;
+            top: 300px;
+        }
+
+        img {
+            vertical-align: middle;
+            max-width: 100%;
+        }
+
+        .mask {
+            position: fixed;
+            z-index: 9998;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, .5);
+            display: table;
+            transition: opacity .3s ease;
+        }
+
+        .mask__wrapper {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .mask__container {
+            position: relative;
+            margin: 0px auto;
+        }
+
+        .mask__close {
+            cursor: pointer;
+            position: absolute;
+            right: -52px;
+            top: 0;
+            padding: 5px 10px;
+            background: #eee;
+        }
+
+        .mask__save {
+            cursor: pointer;
+            position: absolute;
+            right: -52px;
+            top: 28px;
+            padding: 5px 10px;
+            background: #eee;
+        }
+
+        .file-label {
+            display: inline-block;
+            border-radius: 3px;
+            padding: 10px 20px;
+            background: #eee;
+            border-bottom: 1px solid #e7eaf1;
+            box-shadow: 0 1px 3px 0 rgba(0, 37, 55, .05);
+        }
+
+        .file-label input {
+            display: none;
+        }
+
+        .mosaic__item {
+            margin: 0 5px;
+            display: inline-block;
+        }
+
+
+        .container {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!--通过input将选取的图片，生成img，插入到mosaic__item里面-->
+    <div class="container">
+        <label class="file-label">选择图片<input id="upload" type="file"></label>
+    </div>
+    
+    <div id="mosaic" class="mosaic">
+        <!--<div class="mosaic__item">
+            <img class="mosaic__img" src="/img/aaa.png" alt="">
+        </div>
+        <div class="mosaic__item">
+            <img class="mosaic__img" src="/img/a.jpg" alt="">
+        </div>-->
+    </div>
+
+<script src="js/jquery-1.9.1.js"></script>
+<script>
+    var lg = console.log;
+
+
+    function UploadMosaic(options){
+        var defaults = {
+            sWidth: 300,
+            sHeight: 300
+        };
+
+        this.settings = $.extend({}, defaults, options);
+
+        this.pressed = false;
+        this.$input = $(this.settings.input);
+        this.$container = $(this.settings.container);
+
+        this._init();
+    }
+    UploadMosaic.prototype = {
+        _init: function(){
+            this._initEvents();
+        },
+        _initEvents: function(){
+            var _this = this;
+
+            this.$input.on("change", function(e){
+                _this.readImage(e);
+            });
+
+            this.$container.on("click", ".mosaic__upload", function(e){
+                _this.uploadImage(e, this);
+            });
+
+            this.$container.on("click", ".mosaic__edit", function(e){
+                _this._editImage(e, this);
+            });
+        },
+        readImage: function(e){
+            var _this = this;
+            if(!window.FileReader){
+                alert('您的浏览器不支持FileReader');
+                return;
+            }
+
+            var file = e.target.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e){
+                var src = e.target.result;
+                var img = new Image();
+                img.onload = function(e){
+                    var w, h;
+                    var scale = Math.min(_this.settings.sWidth / this.width, _this.settings.sHeight / this.height, 1);
+                    var p = 1;
+
+                    // 图片尺寸超出预设才进行缩放
+                    if(scale < 1){p = 1.1}
+
+                    var fW = this.width;
+                    var fH = this.height;
+                    this.width = this.width * scale / p;
+                    this.height = this.height * scale / p;
+                    w = this.width;
+                    h = this.height;
+                    var $canvas = $("<canvas></canvas>");
+                    var context = $canvas[0].getContext("2d");
+
+                    with($canvas){
+                        css("width", w);
+                        css("height", h);
+                        attr("width", fW);
+                        attr("height", fH);
+                        addClass("mosaic__canvas");
+                        attr("data-w", fW);
+                        attr("data-h", fH);
+                    }
+                    context.drawImage(img, 0, 0, fW, fH, 0, 0, fW, fH);
+
+                    var $item = $('<div class="mosaic__item">' +
+                                    '<button class="mosaic__edit">编辑</button>' +
+                                    '<button class="mosaic__upload">上传</button>' +
+                                '</div>');
+                                
+                    _this.$container.append($item.prepend($canvas));
+                };
+                img.src = src;
+            };
+            reader.readAsDataURL(file);
+        },
+        _editImage: function(e, context){
+            var _this = this;
+            var $canvas = $(context).parent(".mosaic__item").find(".mosaic__canvas");
+            // 需要将原本的缩略图尺寸信息缓存起来
+            var oldWidth = $canvas.attr("width");
+            var oldHeight = $canvas.attr("height");
+            var oldDataWidth = $canvas.attr("data-w");
+            var oldDataHeight = $canvas.attr("data-h");
+            var oldStyleWidth = $canvas.css("width");
+            var oldStyleHeight = $canvas.css("height");
+
+            var $mask =  $('<div class="mask">' +
+                            '<div class="mask__wrapper ">' +
+                                '<div class="mask__container">' +
+                                    '<div class="mask__close">关闭</div>' +
+                                    '<div class="mask__save">保存</div>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>');
+
+            var cacheW, cacheH, width, height, nWidth, nHeight, winW, winH;
+            winW = $(window).width();
+            winH = $(window).height();
+            cacheW = width = nWidth = $canvas.attr('data-w');
+            cacheH = height = nHeight = $canvas.attr('data-h');
+
+            var scale = Math.min(winW / width, winH / height, 1);
+            var scaleP = 1;
+            // 这里的比例需要设置到画笔坐标上，否则会导致绘制偏移
+            if(scale < 1){
+                scaleP = 1.1
+            }
+
+            this.width = parseInt(width * scale / scaleP);
+            this.height = parseInt(height * scale / scaleP);
+
+            this.xW = width / 100;
+            this.yH = height / 100;
+
+            this.scalePer = cacheW / this.width;
+
+            // 克隆出一个新的canvas元素，放置到弹层里面
+            var newCanvas = _this.cloneCanvas($canvas[0]);
+            var $container = $mask.find(".mask__container");
+            $container.css({
+                width: this.width,
+                height: this.height
+            });
+            $(newCanvas).addClass("mask__canvas");
+            $(newCanvas).css({
+                width: this.width,
+                height: this.height
+            });
+            $container.prepend($(newCanvas));
+
+
+            $(newCanvas).on("mousedown", function(e){
+                _this._down(e);
+            });
+            $(newCanvas).on("mousemove", function(e){
+                _this._move(e, $(newCanvas));
+            });
+            $(document).on('mouseup', function(e){
+                _this._up(e);
+            });
+
+            // 保存修改好的canvas，用弹层的canvas替换掉mosaic__item里面的canvas
+            $container.on("click", ".mask__save",function(e){
+                var $maskCanvas = $container.find(".mask__canvas");
+                var $bodyNewCanvas = $(_this.cloneCanvas($maskCanvas[0]));
+
+                $bodyNewCanvas.attr("data-w", oldDataWidth);
+                $bodyNewCanvas.attr("data-h", oldDataHeight);
+                $bodyNewCanvas.css("width", oldStyleWidth);
+                $bodyNewCanvas.css("height", oldStyleHeight);
+                $bodyNewCanvas.addClass("mosaic__canvas");
+                
+                $(context).parent(".mosaic__item").prepend($bodyNewCanvas);
+                $canvas.remove();
+                $mask.remove();
+            });
+            $container.on("click", ".mask__close",function(e){
+                $mask.remove();
+            });
+
+            $('body').append($mask);
+        },
+        _down: function(e){
+            e.preventDefault();
+            this.pressed = true;
+        },
+        _move: function(e, $newCanvas){
+            e.preventDefault();
+            if(!this.pressed){return;}
+
+            // 如果鼠标按下
+            var pos = this.getPos(e.pageX, e.pageY);
+ 
+            var length = 10; // 取样尺寸
+            var area = 20; //  取样范围
+            var maxW = Math.floor(this.width);
+            var maxH = Math.floor(this.height);
+            var context = $newCanvas[0].getContext("2d");
+            var avgAreaPos = this.getLeftTopFromCenter(pos, area, context);
+            // 当前鼠标坐标，区域范围的一半获取色值
+
+            // 如果avgAreaPos已经越界，需要反向area取色 
+            // 根据这里的pos值，获取越界的数值，然后从avgareaPos上减去
+            // var diffX = avgAreaPos.x - maxW;
+            var pX = e.pageX + (area / 2) - $('.mask__container').offset().left;
+            var pY = e.pageY + (area / 2) - $('.mask__container').offset().top;
+
+            var diffX = maxW - pX;
+            var diffY = maxH - pY;
+            if(diffX > 0){
+                diffX = 0;
+            }
+            if(diffY > 0){
+                diffY = 0;
+            }
+            var imgData = context.getImageData((avgAreaPos.x + diffX) * this.scalePer, (avgAreaPos.y + diffY) * this.scalePer, area, area);
+
+            // 如果鼠标靠近边缘，需要阻止溢出取色
+            var red = 0,green = 0,blue = 0;
+
+
+            for (var a = 0; a + 4 < imgData.data.length; a += 4) {
+                red   += imgData.data[a];
+                green += imgData.data[a + 1];
+                blue  += imgData.data[a + 2]
+            }
+
+            red /= imgData.data.length / 4;
+            green /= imgData.data.length / 4;
+            blue /= imgData.data.length / 4;
+
+            var newLeftTopPos = this.getLeftTopFromCenter(pos, length);
+            var npX = e.pageX + (length / 2) - $('.mask__container').offset().left;
+            var npY = e.pageY + (length / 2) - $('.mask__container').offset().top;
+
+            var newDiffX = maxW - npX;
+            var newDiffY = maxH - npY;
+            if(newDiffX > 0){
+                newDiffX = 0;
+            }
+            if(newDiffY > 0){
+                newDiffY = 0;
+            }
+            
+            var newImgData = context.getImageData((newLeftTopPos.x + newDiffX) * this.scalePer, (newLeftTopPos.y + newDiffY) * this.scalePer, length, length);
+
+            for (var i = 0; i + 4 < newImgData.data.length; i += 4) {
+                newImgData.data[i] = red;
+                newImgData.data[i + 1] = green;
+                newImgData.data[i + 2] = blue;
+            }
+            context.putImageData(newImgData, newLeftTopPos.x  * this.scalePer, newLeftTopPos.y  * this.scalePer);
+        },
+        getLeftTopFromCenter: function(pos, size, context){
+            var x, y;
+            var minW = 0;
+            var minH = 0;
+
+
+            x = pos.x - size / 2 | 1,
+            y = pos.y - size / 2 | 1
+
+            if(x < 0){
+                x = 0;
+            }
+
+            if(y < 0){
+                y = 0;
+            }
+
+            return {
+                x: x,
+                y: y
+            }
+        },
+        // 计算当前坐标值在这个200份格子中的位置
+        getPos: function(x, y){
+            var px, py;
+            var result = {
+                x: 0,
+                y: 0
+            };
+            var posArr = this.createPosArr();
+   
+            x = x - $('.mask__container').offset().left;
+            y = y - $('.mask__container').offset().top;
+ 
+            for (var i = 0; i < posArr.length; i++) {
+                px = posArr[i].x;
+                py = posArr[i].y;
+                if (x >= px) {
+                    result.x = posArr[i].x;
+                    continue;
+                }
+            }
+
+            for (var i = 0; i < posArr.length; i++) {
+                px = posArr[i].x;
+                py = posArr[i].y;
+                if (y >= py) {
+                    result.y = posArr[i].y;
+                    continue;
+                }
+            }
+
+            return result;
+        },
+        createPosArr: function(){
+            var arr = [];
+            for (var i = 0; i < 100; i++) {
+                arr.push({
+                    x: i * this.xW,
+                    y: i * this.yH
+                });
+            }
+            return arr;
+        },
+        _up: function(e){
+            this.pressed = false;
+        },
+        _appendCanvasToMask: function($canvas){
+
+        },
+        cloneCanvas: function(oldCanvas){
+            //create a new canvas
+            var newCanvas = document.createElement('canvas');
+            var context = newCanvas.getContext('2d');
+
+            //set dimensions
+            newCanvas.width = oldCanvas.width;
+            newCanvas.height = oldCanvas.height;
+
+            //apply the old canvas to the new one
+            context.drawImage(oldCanvas, 0, 0);
+
+            //return the new canvas
+            return newCanvas;
+        },
+        _createCanvasToMask: function(img, w, h, swidth, sheight){
+            var canvas = document.createElement('canvas');
+            context = canvas.getContext('2d');
+            // 根据图片元素的宽高设置canvas的尺寸
+            canvas.width = swidth;
+            canvas.height = sheight;
+            context.drawImage(img, 0, 0, swidth, sheight, 0, 0, swidth, sheight);
+            $(canvas).css({
+                width: w,
+                height: h
+            });
+            var $maskContainer = $('.mask').find('.mask__container');
+            $maskContainer.css({
+                width: w,
+                height: h
+            });
+            $maskContainer.append(canvas);
+
+            $('.mask').on('click', '.mask__close', function (e) {
+                $('.mask').remove();
+            });
+
+            $('.mask').on('click', '.mask__save', function (e) {
+                var data = canvas.toDataURL("image/jpeg", 0.7);
+
+                var $item = '<div class="mosaic__item">' +
+                    '<img class="mosaic__img" src="' + data + '" alt="">' +
+                    '</div>';
+
+                $("#mosaic").append($item);
+                $('.mask').remove();
+            });
+        },
+        uploadImage: function(e, context){
+            var $canvas = $(context).parent(".mosaic__item").find(".mosaic__canvas");
+            var dataURL = $canvas[0].toDataURL("image/jpeg", .7);
+            // var data = dataURL.split(",")[1];
+            this._upload(dataURL);
+        },
+        _upload: function(data){
+            var _this = this;
+            $.ajax({
+                url: './upload',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    imgData: data
+                }
+            })
+            .done(function(res){
+                _this._viewImage(res);
+            })
+            .fail(function() {
+                console.log('fail');
+            })
+            .always(function() {
+                console.log('always');
+            });
+        },
+        _viewImage: function(src){
+            var img = new Image();
+            img.onload = function(e){
+                $("body").append(this);                
+            };
+            img.src = src.url;
+        }
+    };
+
+    new UploadMosaic({
+        input: "#upload",
+        container: "#mosaic"
+    });
+
+
+    // var xW = 0;
+    // var yH = 0;
+    // var width = 0;
+    // var height = 0;
+    // var scalePer = 1;
+    // var context = null;
+
+    // var mask = '<div class="mask">' +
+    //     '<div class="mask__wrapper ">' +
+    //     '<div class="mask__container">' +
+    //     '<div class="mask__close">关闭</div>' +
+    //     '<div class="mask__save">保存</div>' +
+    //     '</div>' +
+    //     '</div>' +
+    //     '</div>';
+
+    // // 选择图片文件
+    // $('#upload').on('change', function (e) {
+    //     var file = e.target.files[0];
+    //     if(window.FileReader == undefined){
+    //         alert('您的浏览器不支持FileReader');
+    //         return;
+    //     }
+    //     var reader = new FileReader();
+    //     reader.onload = function (e) {
+    //         var w, h;
+    //         // this == e.target // true;
+    //         var src = e.target.result;
+    //         var $img = $("<img />");
+    //         $img.on("load", function (e) {
+    //             w = e.target.naturalWidth;
+    //             h = e.target.naturalHeight;
+
+    //             var $item = '<div class="mosaic__item">' +
+    //                             '<img class="mosaic__img" data-w="' + w + '" data-h="' + h + '" src="' + src + '" alt="">' +
+    //                             '<button class="mosaic__upload">上传</button>'
+    //                         '</div>';
+
+    //             $("#mosaic").append($item);
+    //         });
+    //         $img.attr('src', src);
+    //     };
+    //     reader.readAsDataURL(file);
+    // });
+
+    // function createCanvas(img, w, h, swidth, sheight) {
+    //     var canvas = document.createElement('canvas');
+    //     context = canvas.getContext('2d');
+    //     // 根据图片元素的宽高设置canvas的尺寸
+    //     canvas.width = swidth;
+    //     canvas.height = sheight;
+    //     context.drawImage(img, 0, 0, swidth, sheight, 0, 0, swidth, sheight);
+    //     $(canvas).css({
+    //         width: w,
+    //         height: h
+    //     });
+    //     var $maskContainer = $('.mask').find('.mask__container');
+    //     $maskContainer.css({
+    //         width: w,
+    //         height: h
+    //     });
+    //     $maskContainer.append(canvas);
+
+    //      $('.mask').on('click', '.mask__close', function (e) {
+    //         $('.mask').remove();
+    //     });
+
+    //     $('.mask').on('click', '.mask__save', function (e) {
+    //         var data = canvas.toDataURL("image/jpeg", 0.7);
+
+    //         var $item = '<div class="mosaic__item">' +
+    //             '<img class="mosaic__img" src="' + data + '" alt="">' +
+    //             '</div>';
+
+    //         $("#mosaic").append($item);
+    //         $('.mask').remove();
+    //     });
+    // }
+    // var mousedown = false;
+
+    // function down(e) {
+    //     e.preventDefault();
+    //     mousedown = true;
+    // }
+
+    // function getLeftTopFromCenter(pos, size, context) {
+    //     var x, y;
+    //     var minW = 0;
+    //     var minH = 0;
+
+
+    //     x = pos.x - size / 2 | 1,
+    //     y = pos.y - size / 2 | 1
+
+    //     if(x < 0){
+    //         x = 0;
+    //     }
+
+    //     if(y < 0){
+    //         y = 0;
+    //     }
+
+    //     return {
+    //         x: x,
+    //         y: y
+    //     }
+    // }
+
+    // function move(e) {
+    //     if (!mousedown) {
+    //         return;
+    //     }
+    //     e.preventDefault();
+
+    //     // 如果鼠标按下
+    //     if (mousedown) {
+    //         var pos = getPos(e.pageX, e.pageY);
+    //         var length = 10; // 取样尺寸
+    //         var area = 20; //  取样范围
+    //         var maxW = Math.floor(width);
+    //         var maxH = Math.floor(height);
+    //         var avgAreaPos = getLeftTopFromCenter(pos, area, context);
+    //         // 当前鼠标坐标，区域范围的一半获取色值
+
+    //         // 如果avgAreaPos已经越界，需要反向area取色 
+    //         // 根据这里的pos值，获取越界的数值，然后从avgareaPos上减去
+    //         // var diffX = avgAreaPos.x - maxW;
+    //         var pX = e.pageX + (area / 2) - $('.mask__container').offset().left;
+    //         var pY = e.pageY + (area / 2) - $('.mask__container').offset().top;
+
+    //         var diffX = maxW - pX;
+    //         var diffY = maxH - pY;
+    //         if(diffX > 0){
+    //             diffX = 0;
+    //         }
+    //         if(diffY > 0){
+    //             diffY = 0;
+    //         }
+
+    //         var red = 0,green = 0,blue = 0;
+
+    //         var imgData = context.getImageData((avgAreaPos.x + diffX) * scalePer, (avgAreaPos.y + diffY) * scalePer, area, area);
+            
+    //         // 如果鼠标靠近边缘，需要阻止溢出取色
+
+    //         // 把这里区域里面的颜色值遍历出来加到一起再相除，得出平均值？
+    //         for(var a = 0; a + 4 < imgData.data.length; a += 4) {
+    //             red   += imgData.data[a];
+    //             green += imgData.data[a + 1];
+    //             blue  += imgData.data[a + 2];
+    //         }
+            
+    //         red  = red   / (imgData.data.length / 4);
+    //         green = green / (imgData.data.length / 4);
+    //         blue  = blue  / (imgData.data.length / 4);
+    //         // 得到该区域里面的平均值
+    //         console.log("1:", red, green, blue);
+            
+    //         var newLeftTopPos = getLeftTopFromCenter(pos, length);
+    //         var npX = e.pageX + (length / 2) - $('.mask__container').offset().left;
+    //         var npY = e.pageY + (length / 2) - $('.mask__container').offset().top;
+
+    //         var newDiffX = maxW - npX;
+    //         var newDiffY = maxH - npY;
+    //         if(newDiffX > 0){
+    //             newDiffX = 0;
+    //         }
+    //         if(newDiffY > 0){
+    //             newDiffY = 0;
+    //         }
+            
+    //         var newImgData = context.getImageData((newLeftTopPos.x + newDiffX) * scalePer, (newLeftTopPos.y + newDiffY) * scalePer, length, length);
+
+    //         for (var i = 0; i + 4 < newImgData.data.length; i += 4) {
+    //             console.log("2:", red, green, blue);
+                
+    //             newImgData.data[i] = red;
+    //             newImgData.data[i + 1] = green;
+    //             newImgData.data[i + 2] = blue;
+    //         }
+    //         context.putImageData(newImgData, newLeftTopPos.x  * scalePer, newLeftTopPos.y  * scalePer);
+    //     }
+    // }
+
+    // function up(e) {
+    //     e.preventDefault();
+    //     mousedown = false;
+    // }
+
+    // function getAverageColor(imageData, opt) {
+    //     var options = {
+    //         calculateAlpha: (opt && typeof opt.calculateAlpha === 'boolean') ? opt.calculateAlpha : true
+    //     }
+    //     var sum = {
+    //         r: 0,
+    //         g: 0,
+    //         b: 0
+    //     }
+    //     var data = imageData.data ? imageData.data : imageData
+    //     var length = data.length
+    //     var totalPixel = length / 4
+    //     var opacity = 1
+
+    //     for (var i = 0; i < length; i += 4) {
+    //         if (options.calculateAlpha) {
+    //             opacity = data[i + 3] / 255
+    //         }
+    //         sum.r += data[i] * opacity
+    //         sum.g += data[i + 1] * opacity
+    //         sum.b += data[i + 2] * opacity
+    //     }
+    //     return {
+    //         r: Math.round(sum.r / totalPixel),
+    //         g: Math.round(sum.g / totalPixel),
+    //         b: Math.round(sum.b / totalPixel)
+    //     }
+    // }
+
+    // // 计算当前坐标值在这个200份格子中的位置
+    // function getPos(x, y) {
+    //     var px, py;
+    //     var result = {
+    //         x,
+    //         y
+    //     };
+    //     var posArr = createPosArr();
+    //     x = x - $('.mask__container').offset().left;
+    //     y = y - $('.mask__container').offset().top;
+    //     for (var i = 0; i < posArr.length; i++) {
+    //         px = posArr[i].x;
+    //         py = posArr[i].y;
+    //         if (x >= px) {
+    //             result.x = posArr[i].x;
+    //             continue;
+    //         }
+    //     }
+
+    //     for (var i = 0; i < posArr.length; i++) {
+    //         px = posArr[i].x;
+    //         py = posArr[i].y;
+    //         if (y >= py) {
+    //             result.y = posArr[i].y;
+    //             continue;
+    //         }
+    //     }
+
+    //     return result;
+    // }
+
+    // function createPosArr() {
+    //     var arr = [];
+    //     for (var i = 0; i < 200; i++) {
+    //         arr.push({
+    //             x: i * xW,
+    //             y: i * yH
+    //         });
+    //     }
+    //     return arr;
+    // }
+
+    // $('#mosaic').on('click', ".mosaic__img", function (e) {
+    //     var cacheW = 0;
+    //     var cacheH = 0;
+    //     cacheW = width = $(this).attr('data-w');
+    //     cacheH = height = $(this).attr('data-h');
+    //     var nWidth = $(this).attr('data-w');
+    //     var nHeight = $(this).attr('data-h');
+    //     var winW = $(window).width();
+    //     var winH = $(window).height();
+
+    //     var scale = Math.min(winW / width, winH / height, 1);
+    //     var scaleP = 1;
+    //     // 这里的比例需要设置到画笔坐标上，否则会导致绘制偏移
+    //     if(scale < 1){
+    //         scaleP = 1.1
+    //     }
+        
+    //     width = width * scale / scaleP;
+    //     height = height * scale / scaleP;
+        
+
+    //     scalePer = cacheW / width;
+
+    //     xW = width / 200;
+    //     yH = height / 200;
+    //     $('body').append(mask);
+    //     createCanvas($(this)[0], width, height, nWidth, nHeight);
+
+    //     var $canvas = $('.mask').find('canvas');
+    //     $canvas.on({
+    //         mousedown: down,
+    //         mousemove: move
+    //     });
+
+    //     $(document).on('mouseup', up);
+    // });
+
+    // $('#mosaic').on('click', '.mosaic__upload', function(e){
+    //     var $img = $(this).parent('.mosaic__item').find('.mosaic__img');
+
+    //     console.log($img)
+    // });
+
+</script>
+</body>
+</html>

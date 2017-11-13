@@ -148,24 +148,25 @@
 		function createScaleArea(canvas, $wrap, x, y, offsetX, offsetY){
 			var $scaleArea = $('<canvas class="scale-area" width="150" height="100"></canvas>');
 			$scaleArea.css({
-				width: imageWidth,
-				height: imageHeight
+				width: 150,
+				height: 100
 			});
 
+			var left = 0;
+			var top = 0;
+		
 			var context = $scaleArea[0].getContext('2d');
-			context.drawImage(canvas, (x - offsetX) - imageWidth / 2, (y - offsetY) - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
+			context.drawImage(canvas, (x - offsetX) - imageWidth / 2, 
+				(y - offsetY) - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
+
 			$wrap.append($scaleArea);
 		}
 
 		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
-			lg(naturalWidth, naturalHeight, winW, winH);
-			return;
-			var scale = Math.min(naturalWidth / winW, naturalHeight / winH, 1);
-
-			
+			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1);
 			return {
-				w: winW * scale,
-				h: winH * scale
+				w: naturalWidth * scale / 1.1,
+				h: naturalHeight * scale / 1.1
 			};
 		}
 
@@ -178,23 +179,20 @@
 
 			// 将传入的img对象绘制到弹层的canvas上
 			context.drawImage(img, 0, 0);
+			var compress = getCompressSize(width, height, $(window).width(), $(window).height());
 
-			var compressSize = getCompressSize(width, height, $(window).width(), $(window).height());
-
-			
-			return;
 
 			var $wrap = $('<div class="layer__wrap"></div>');
 			$wrap.css({
-				width: compressSize.w,
-				height: compressSize.h,
-				marginLeft: -(compressSize.w / 2),
-				marginTop: -(compressSize.h / 2)
+				width: compress.w,
+				height: compress.h,
+				marginLeft: -(compress.w / 2),
+				marginTop: -(compress.h / 2)
 			});
 
 			$canvas.css({
-				width: compressSize.w,
-				height: compressSize.h
+				width: compress.w,
+				height: compress.h
 			});
 			$wrap.append($canvas);
 
@@ -215,12 +213,15 @@
 				var y = e.clientY;
 				var offsetX = $canvas.offset().left;
 				var offsetY = $canvas.offset().top;
+
+
 				createScaleArea(this, $wrap, x, y, offsetX, offsetY);
 
-				drawMosaic(this, x - offsetX, y - offsetY);
+				// drawMosaic(this, x - offsetX, y - offsetY);
 			});
 
 			$canvas.on('mousemove', function(e){
+				return;
 				if(!pressd){return;}
 
 				var x       = e.clientX;
@@ -238,7 +239,7 @@
 
 			$canvas.on('mouseup', function(e){
 				pressd = false;
-				$wrap.find('.scale-area').remove();
+				// $wrap.find('.scale-area').remove();
 			})
 
 			$layer.append($wrap).appendTo('body');

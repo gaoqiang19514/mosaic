@@ -7,10 +7,12 @@
     <title>Document</title>
     <style>
     	.box{
+    		width: 250px;
     		display: inline-block;
     		position: relative;
     	}
     	img{
+    		max-width: 100%;
     		display: block;
     	}
     	.box .edit{
@@ -29,7 +31,7 @@
 <body>
 	
 	<div class="box">
-		<img src="img/3.jpg" alt="">
+		<img src="img/2.jpg" alt="">
 	</div>
 	
 
@@ -63,13 +65,13 @@
 <script>
 	$(function(){
 		var lg = console.log;
-
-		var pressd = false;
-		var imageWidth = 150;
+		
+		var pressd      = false;
+		var imageWidth  = 150;
 		var imageHeight = 100;
+		var brushHalf   = 5;
 
-		var brushHalf = 5;
-
+		// 找到坐标点基于画布的区域坐标
 		function getAveragePos(canvas, x, y, width, height){
 			var wLen = canvas.width / width;
 			var hLen = canvas.height / height;
@@ -96,29 +98,30 @@
 			}
 
 			return {
-				x: i * width,
-				y: j * height
+				x: (i - 1) * width,
+				y: (j - 1) * height
 			}
 		}
 
-		function drawMosaic(canvas, x, y){
-			var left = x - brushHalf;
-			var right = x + brushHalf;
-			var width = right - left;
+		function drawPoint(canvas, x, y){
+			var ctx = canvas.getContext('2d');
+			ctx.fillStyle = 'red';
+			ctx.fillRect(x - brushHalf / 2 + 1, y - brushHalf / 2 + 1, brushHalf, brushHalf);
+		}
 
-			var top = y - brushHalf;
-			var bottom = y + brushHalf;
-			var height = bottom - top;
+		function drawMosaic(canvas, x, y){
+			var width  = brushHalf * 2;
+			var height = brushHalf * 2;
 
 			var pos = getAveragePos(canvas, x, y, width, height);
-
-			lg(pos);
 
 			var context = canvas.getContext('2d');
 			var imgData = context.getImageData(pos.x, pos.y, width, height);
 
 			var data = imgData.data;
 			var r = 0, g = 0, b = 0, a = 0;
+
+			// 累加imageData的rgba色值
 			for(var i = 0; i < data.length; i+= 4){
 				r += data[i];
 				g += data[i + 1];
@@ -126,6 +129,7 @@
 				a += data[i + 3];
 			}
 
+			// 计算区域平均rgba数值 然后创建一个imageData对象 将计算的平均色值赋值给它
 			r /= data.length / 4;
 			g /= data.length / 4;
 			b /= data.length / 4;
@@ -153,23 +157,44 @@
 			$wrap.append($scaleArea);
 		}
 
+		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
+			lg(naturalWidth, naturalHeight, winW, winH);
+			return;
+			var scale = Math.min(naturalWidth / winW, naturalHeight / winH, 1);
+
+			
+			return {
+				w: winW * scale,
+				h: winH * scale
+			};
+		}
+
 		function createWorkSpace(img, width, height){
-			var $canvas = $('<canvas width="'+width+'" height="'+height+'"></canvas>');
+
+
+			var $canvas = $('<canvas width="' + width + '" height="' + height + '"></canvas>');
 			var canvas = $canvas[0];
 			var context = canvas.getContext('2d');
+
+			// 将传入的img对象绘制到弹层的canvas上
 			context.drawImage(img, 0, 0);
+
+			var compressSize = getCompressSize(width, height, $(window).width(), $(window).height());
+
+			
+			return;
 
 			var $wrap = $('<div class="layer__wrap"></div>');
 			$wrap.css({
-				width: width,
-				height: height,
-				marginLeft: -(width / 2),
-				marginTop: -(height / 2)
+				width: compressSize.w,
+				height: compressSize.h,
+				marginLeft: -(compressSize.w / 2),
+				marginTop: -(compressSize.h / 2)
 			});
 
 			$canvas.css({
-				width: width,
-				height: height
+				width: compressSize.w,
+				height: compressSize.h
 			});
 			$wrap.append($canvas);
 
@@ -182,7 +207,6 @@
 				}
 
 				$layer.remove();
-
 			});
 
 			$canvas.on('mousedown', function(e){
@@ -191,21 +215,20 @@
 				var y = e.clientY;
 				var offsetX = $canvas.offset().left;
 				var offsetY = $canvas.offset().top;
-
 				createScaleArea(this, $wrap, x, y, offsetX, offsetY);
+
+				drawMosaic(this, x - offsetX, y - offsetY);
 			});
 
 			$canvas.on('mousemove', function(e){
 				if(!pressd){return;}
 
-				var x = e.clientX;
-				var y = e.clientY;
+				var x       = e.clientX;
+				var y       = e.clientY;
 				var offsetX = $canvas.offset().left;
 				var offsetY = $canvas.offset().top;
 
-
 				drawMosaic(this, x - offsetX, y - offsetY);
-
 
 				var $scaleArea  = $('.scale-area');
 				var context = $scaleArea[0].getContext('2d');
@@ -222,15 +245,13 @@
 		}
 
 		$('.box').append('<button class="edit">编辑</button>');
-
 		$('.box').on('click', '.edit', function(e){
-			var $parent = $(this).parent('.box');
-			var width = $parent.find('img').width();
-			var height = $parent.find('img').height();
+			var img     = $(this).parent('.box').find('img')[0];
+			var width   = img.naturalWidth;
+			var height  = img.naturalHeight;
 
-			createWorkSpace($parent.find('img')[0], width, height);
+			createWorkSpace(img, width, height);
 		});
-
 
 	});
 </script>

@@ -34,7 +34,6 @@
 		<img src="img/2.jpg" alt="">
 	</div>
 	
-
 	<style>
 		.layer{
 			position: fixed;
@@ -60,16 +59,15 @@
 
 	</style>
 
-
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 <script>
 	$(function(){
-		var lg = console.log;
+		var lg          = console.log;
 		
 		var pressd      = false;
 		var imageWidth  = 150;
 		var imageHeight = 100;
-		var brushHalf   = 5;
+		var brushHalf   = 15;
 
 		// 找到坐标点基于画布的区域坐标
 		function getAveragePos(canvas, x, y, width, height){
@@ -145,7 +143,7 @@
 			context.putImageData(newImgData, pos.x, pos.y);
 		}
 
-		function createScaleArea(canvas, $wrap, x, y, offsetX, offsetY){
+		function createScaleArea(canvas, $wrap, x, y){
 			var $scaleArea = $('<canvas class="scale-area" width="150" height="100"></canvas>');
 			$scaleArea.css({
 				width: 150,
@@ -156,32 +154,36 @@
 			var top = 0;
 		
 			var context = $scaleArea[0].getContext('2d');
-			context.drawImage(canvas, (x - offsetX) - imageWidth / 2, 
-				(y - offsetY) - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
+			context.drawImage(canvas, x - imageWidth / 2, 
+				y - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
 
 			$wrap.append($scaleArea);
 		}
 
 		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
-			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1);
+			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1) / 1.1;
 			return {
-				w: naturalWidth * scale / 1.1,
-				h: naturalHeight * scale / 1.1
+				w: naturalWidth * scale,
+				h: naturalHeight * scale,
+				scale: scale
 			};
 		}
 
+		function getScale(naturalWidth, naturalHeight, width, height){
+			
+			return naturalWidth / width || 1;
+		}
+
 		function createWorkSpace(img, width, height){
-
-
 			var $canvas = $('<canvas width="' + width + '" height="' + height + '"></canvas>');
-			var canvas = $canvas[0];
+			var canvas  = $canvas[0];
 			var context = canvas.getContext('2d');
 
 			// 将传入的img对象绘制到弹层的canvas上
 			context.drawImage(img, 0, 0);
 			var compress = getCompressSize(width, height, $(window).width(), $(window).height());
-
-
+			var scale = getScale(width, height, compress.w, compress.h);
+			
 			var $wrap = $('<div class="layer__wrap"></div>');
 			$wrap.css({
 				width: compress.w,
@@ -207,40 +209,45 @@
 				$layer.remove();
 			});
 
+
 			$canvas.on('mousedown', function(e){
 				pressd = true;
-				var x = e.clientX;
-				var y = e.clientY;
+
+				var x       = e.clientX;
+				var y       = e.clientY;
 				var offsetX = $canvas.offset().left;
 				var offsetY = $canvas.offset().top;
+				var left    = x - offsetX;
+				var top     = y - offsetY;
 
+				createScaleArea(this, $wrap, left * scale, top * scale);
 
-				createScaleArea(this, $wrap, x, y, offsetX, offsetY);
-
-				// drawMosaic(this, x - offsetX, y - offsetY);
+				drawMosaic(this, left * scale, top * scale);
 			});
 
 			$canvas.on('mousemove', function(e){
-				return;
 				if(!pressd){return;}
 
 				var x       = e.clientX;
 				var y       = e.clientY;
 				var offsetX = $canvas.offset().left;
 				var offsetY = $canvas.offset().top;
+				var left    = x - offsetX;
+				var top     = y - offsetY;
 
-				drawMosaic(this, x - offsetX, y - offsetY);
+				drawMosaic(this, left * scale, top * scale);
 
 				var $scaleArea  = $('.scale-area');
 				var context = $scaleArea[0].getContext('2d');
 				context.clearRect(0, 0, imageWidth, imageHeight);
-				context.drawImage(this, (x - offsetX) - imageWidth / 2, (y - offsetY) - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
+				context.drawImage(this, left * scale - imageWidth / 2, top * scale - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
 			});
 
 			$canvas.on('mouseup', function(e){
 				pressd = false;
-				// $wrap.find('.scale-area').remove();
-			})
+
+				$wrap.find('.scale-area').remove();
+			});
 
 			$layer.append($wrap).appendTo('body');
 		}

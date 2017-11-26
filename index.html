@@ -151,19 +151,21 @@
 
 		// 生成预览区域到wrap中
 		function createScaleArea(canvas, $wrap, x, y){
-			var $scaleArea = $('<canvas class="scale-area"></canvas>');
+			var $canvas = $('<canvas class="scale-area"></canvas>');
 
-			$scaleArea.attr({
+			$canvas.attr({
 				'width': imageWidth,
 				'height': imageHeight
 			});
 
-			$scaleArea.css({
+			$canvas.css({
+				left: x,
+				top: y,
 				width: imageWidth,
 				height: imageHeight
 			});
 
-			$wrap.append($scaleArea);
+			$wrap.append($canvas);
 		}
 
 		// 绘制预览区域
@@ -213,8 +215,35 @@
 				left = parseInt((e.clientX - $canvas.offset().left) * scale);
 				top  = parseInt((e.clientY - $canvas.offset().top) * scale);
 
-				// 生成放大预览区域
-				createScaleArea(this, $wrap, left, top);
+				// 根据left top给预览区定位
+				var scaleAreaLeft = 0;
+				var scaleAreaTop = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				
+
+
+				// 生成预览
+				createScaleArea(this, $wrap, 0, 0);
 
 				// 实时将鼠标的move位置沪指导缩放区域
 				drawScaleArea(this, left, top);
@@ -234,7 +263,7 @@
 
 			$canvas.on('mouseup', function(e){
 				pressd = false;
-				// $wrap.find('.scale-area').remove();
+				$wrap.find('.scale-area').remove();
 			});
 
 			// 关闭工作弹层

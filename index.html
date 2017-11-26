@@ -6,14 +6,14 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
     <style>
+    	img{
+    		max-width: 100%;
+    		display: block;
+    	}
     	.box{
     		width: 250px;
     		display: inline-block;
     		position: relative;
-    	}
-    	img{
-    		max-width: 100%;
-    		display: block;
     	}
     	.box .edit{
     		outline: none;
@@ -26,16 +26,7 @@
 			padding: 5px 10px;
 			border-top-left-radius: 3px;
     	}
-    </style>
-</head>
-<body>
-	
-	<div class="box">
-		<img src="img/2.jpg" alt="">
-	</div>
-	
-	<style>
-		.layer{
+    	.layer{
 			position: fixed;
 			top: 0;
 			left: 0;
@@ -56,8 +47,16 @@
 			outline: 4px solid red;
 			background: #fff;
 		}
-
-	</style>
+    </style>
+</head>
+<body>
+	
+	<div class="box">
+		<img src="img/2.jpg" alt="">
+	</div>
+	<div class="box">
+		<img src="img/3.jpg" alt="">
+	</div>
 
 <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script>
 <script>
@@ -71,28 +70,22 @@
 
 		// 找到坐标点基于画布的区域坐标
 		function getAveragePos(canvas, x, y, width, height){
+			var i = 1, j = 1, left = 0, right = 0, top = 0, bottom = 0;
 			var wLen = canvas.width / width;
 			var hLen = canvas.height / height;
 
-			var i = 1, j = 1;
-			var left = 0, right = 0, top = 0, bottom = 0;
-			var flag = false;
 			for(; i <= wLen; i++){
-				left = i * width - width;
-				right =  i * width;
+				left  = i * width - width;
+				right = i * width;
 
-				if(x >= left && x <= right){
-					break;
-				}
+				if(x >= left && x <= right){break;}
 			}
 
 			for(; j <= hLen; j++){
-				top = j * height - height;
+				top    = j * height - height;
 				bottom = j * height;
 
-				if(y >= top && y <= bottom){
-					break;
-				}
+				if(y >= top && y <= bottom){break;}
 			}
 
 			return {
@@ -103,19 +96,19 @@
 
 		// 根据在x y的坐标上绘制马赛克
 		function drawMosaic(canvas, x, y){
-			var width  = brushHalf * 2;
-			var height = brushHalf * 2;
-
-			var pos = getAveragePos(canvas, x, y, width, height);
-
+			var r = 0, g = 0, b = 0, a = 0;
+			var width   = brushHalf * 2;
+			var height  = brushHalf * 2;
+			var pos     = getAveragePos(canvas, x, y, width, height);
+			
 			var context = canvas.getContext('2d');
 			var imgData = context.getImageData(pos.x, pos.y, width, height);
 
 			var data = imgData.data;
-			var r = 0, g = 0, b = 0, a = 0;
 
 			// 累加imageData的rgba色值
-			for(var i = 0; i < data.length; i+= 4){
+			var i = 0;
+			for(; i < data.length; i += 4){
 				r += data[i];
 				g += data[i + 1];
 				b += data[i + 2];
@@ -127,15 +120,33 @@
 			g /= data.length / 4;
 			b /= data.length / 4;
 			a /= data.length / 4;
-			var newImgData= context.createImageData(width,height);
-			for(var i = 0; i < data.length; i+= 4){
-				newImgData.data[i+0] =r;
-				newImgData.data[i+1] =g;
-				newImgData.data[i+2] =b;
-				newImgData.data[i+3] =a;
+
+			var newImgData = context.createImageData(width, height);
+			var j = 0;
+			for(; j < data.length; j += 4){
+				newImgData.data[j] 	   = r;
+				newImgData.data[j + 1] = g;
+				newImgData.data[j + 2] = b;
+				newImgData.data[j + 3] = a;
 			}
 
 			context.putImageData(newImgData, pos.x, pos.y);
+		}
+
+		// 获取图片的缩放尺寸
+		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
+			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1) / 1.1;
+
+			return {
+				w: parseInt(naturalWidth * scale),
+				h: parseInt(naturalHeight * scale),
+			};
+		}
+
+		// 获取图片的缩放比例
+		function getScale(naturalWidth, width){
+
+			return naturalWidth / width || 1;
 		}
 
 		// 生成预览区域到wrap中
@@ -152,120 +163,96 @@
 				height: imageHeight
 			});
 
-			var context = $scaleArea[0].getContext('2d');
-			context.drawImage(canvas, x - imageWidth / 2, y - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
-
 			$wrap.append($scaleArea);
 		}
 
-		// 获取图片的缩放尺寸
-		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
-			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1) / 1.1;
-			return {
-				w: naturalWidth * scale,
-				h: naturalHeight * scale,
-				scale: scale
-			};
-		}
+		// 绘制预览区域
+		function drawScaleArea(canvas, x, y){
+			var context = $('.scale-area')[0].getContext('2d');
 
-		// 获取图片的缩放比例
-		function getScale(naturalWidth, naturalHeight, width, height){
-			return naturalWidth / width || 1;
+			context.clearRect(0, 0, imageWidth, imageHeight);
+			context.drawImage(canvas, x - imageWidth / 2, y - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
 		}
-
 
 		// 生成弹层 处理马赛克操作
 		function createWorkSpace(img, width, height){
-			var $canvas = $('<canvas></canvas>');
-			var $wrap   = $('<div class="layer__wrap"></div>');
-			var $layer  = $('<div class="layer"></div>');
-
+			var left 	 = 0, 
+				top      = 0,
+				$win     = $(window),
+				$canvas  = $('<canvas></canvas>'),
+				$layer   = $('<div class="layer"></div>'),
+				$wrap    = $('<div class="layer__wrap"></div>');
 			
-			var compress = getCompressSize(width, height, $(window).width(), $(window).height());
-			var scale    = getScale(width, height, compress.w, compress.h);
-			var canvas   = $canvas[0];
-			var context  = canvas.getContext('2d');
+			var compress = getCompressSize(width, height, $win.width(), $win.height());
+			var scale    = getScale(width, compress.w);
+
+			var context  = $canvas[0].getContext('2d');
 
 			$canvas.attr({
 				'width': width,
 				'height': height
 			});
-
-			// 将传入的img对象绘制到弹层的canvas上
-			context.drawImage(img, 0, 0);
-
 			$canvas.css({
 				width: compress.w,
 				height: compress.h
 			});
-			
+
+			// 将传入的img对象绘制到弹层的canvas上
+			context.drawImage(img, 0, 0);
+
 			$wrap.css({
-				width: compress.w,
-				height: compress.h,
-				marginLeft: -(compress.w / 2),
-				marginTop: -(compress.h / 2)
+				width:  	compress.w,
+				height: 	compress.h,
+				marginLeft: -parseInt(compress.w / 2),
+				marginTop:  -parseInt(compress.h / 2)
 			});
 
 			$canvas.on('mousedown', function(e){
 				pressd = true;
-
-				var left    = (e.clientX - $canvas.offset().left) * scale;
-				var top     = (e.clientY - $canvas.offset().top) * scale;
+				
+				left = parseInt((e.clientX - $canvas.offset().left) * scale);
+				top  = parseInt((e.clientY - $canvas.offset().top) * scale);
 
 				// 生成放大预览区域
 				createScaleArea(this, $wrap, left, top);
 
+				// 实时将鼠标的move位置沪指导缩放区域
+				drawScaleArea(this, left, top);
 				drawMosaic(this, left, top);
 			});
 
 			$canvas.on('mousemove', function(e){
 				if(!pressd){return;}
-
-				var left    = (e.clientX - $canvas.offset().left) * scale;
-				var top     = (e.clientY - $canvas.offset().top) * scale;
-
-				drawMosaic(this, left, top);
-
-				var $scaleArea  = $('.scale-area');
-				var context = $scaleArea[0].getContext('2d');
+				
+				left = (e.clientX - $canvas.offset().left) * scale;
+				top  = (e.clientY - $canvas.offset().top) * scale;
 
 				// 实时将鼠标的move位置沪指导缩放区域
-				context.clearRect(0, 0, imageWidth, imageHeight);
-				context.drawImage(this, left - imageWidth / 2, top - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
+				drawScaleArea(this, left, top);
+				drawMosaic(this, left, top);
 			});
 
 			$canvas.on('mouseup', function(e){
 				pressd = false;
-
-				$wrap.find('.scale-area').remove();
+				// $wrap.find('.scale-area').remove();
 			});
-
 
 			// 关闭工作弹层
 			$layer.on('click', function(e){
-				var $target = $(e.target);
-
-				if($target.closest($wrap).length){
-					return;
-				}
-
+				if($(e.target).closest($wrap).length){return;}
 				$layer.remove();
 			});
-
 
 			$layer.append($wrap.html($canvas)).appendTo('body');
 		}
 
-
 		// 给图片容器内部添加一个编辑按钮 用来触发工作弹层的开关
 		$('.box').append('<button class="edit">编辑</button>');
 		$('.box').on('click', '.edit', function(e){
-			var img     = $(this).parent('.box').find('img')[0];
-			var width   = img.naturalWidth;
-			var height  = img.naturalHeight;
+			var img = $(this).parent('.box').find('img')[0];
 
 			// 传入需要处理的源图片尺寸信息
-			createWorkSpace(img, width, height);
+			createWorkSpace(img, img.naturalWidth, img.naturalHeight);
 		});
 
 	});

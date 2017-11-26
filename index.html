@@ -67,7 +67,7 @@
 		var pressd      = false;
 		var imageWidth  = 150;
 		var imageHeight = 100;
-		var brushHalf   = 15;
+		var brushHalf   = 10;
 
 		// 找到坐标点基于画布的区域坐标
 		function getAveragePos(canvas, x, y, width, height){
@@ -101,12 +101,7 @@
 			}
 		}
 
-		function drawPoint(canvas, x, y){
-			var ctx = canvas.getContext('2d');
-			ctx.fillStyle = 'red';
-			ctx.fillRect(x - brushHalf / 2 + 1, y - brushHalf / 2 + 1, brushHalf, brushHalf);
-		}
-
+		// 根据在x y的坐标上绘制马赛克
 		function drawMosaic(canvas, x, y){
 			var width  = brushHalf * 2;
 			var height = brushHalf * 2;
@@ -143,23 +138,27 @@
 			context.putImageData(newImgData, pos.x, pos.y);
 		}
 
+		// 生成预览区域到wrap中
 		function createScaleArea(canvas, $wrap, x, y){
-			var $scaleArea = $('<canvas class="scale-area" width="150" height="100"></canvas>');
-			$scaleArea.css({
-				width: 150,
-				height: 100
+			var $scaleArea = $('<canvas class="scale-area"></canvas>');
+
+			$scaleArea.attr({
+				'width': imageWidth,
+				'height': imageHeight
 			});
 
-			var left = 0;
-			var top = 0;
-		
+			$scaleArea.css({
+				width: imageWidth,
+				height: imageHeight
+			});
+
 			var context = $scaleArea[0].getContext('2d');
-			context.drawImage(canvas, x - imageWidth / 2, 
-				y - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
+			context.drawImage(canvas, x - imageWidth / 2, y - imageHeight / 2, imageWidth, imageHeight, 0, 0, 150, 100);
 
 			$wrap.append($scaleArea);
 		}
 
+		// 获取图片的缩放尺寸
 		function getCompressSize(naturalWidth, naturalHeight, winW, winH){
 			var scale = Math.min(winW / naturalWidth, winH / naturalHeight, 1) / 1.1;
 			return {
@@ -169,22 +168,37 @@
 			};
 		}
 
+		// 获取图片的缩放比例
 		function getScale(naturalWidth, naturalHeight, width, height){
-			
 			return naturalWidth / width || 1;
 		}
 
+
+		// 生成弹层 处理马赛克操作
 		function createWorkSpace(img, width, height){
-			var $canvas = $('<canvas width="' + width + '" height="' + height + '"></canvas>');
-			var canvas  = $canvas[0];
-			var context = canvas.getContext('2d');
+			var $canvas = $('<canvas></canvas>');
+			var $wrap   = $('<div class="layer__wrap"></div>');
+			var $layer  = $('<div class="layer"></div>');
+
+			
+			var compress = getCompressSize(width, height, $(window).width(), $(window).height());
+			var scale    = getScale(width, height, compress.w, compress.h);
+			var canvas   = $canvas[0];
+			var context  = canvas.getContext('2d');
+
+			$canvas.attr({
+				'width': width,
+				'height': height
+			});
 
 			// 将传入的img对象绘制到弹层的canvas上
 			context.drawImage(img, 0, 0);
-			var compress = getCompressSize(width, height, $(window).width(), $(window).height());
-			var scale = getScale(width, height, compress.w, compress.h);
+
+			$canvas.css({
+				width: compress.w,
+				height: compress.h
+			});
 			
-			var $wrap = $('<div class="layer__wrap"></div>');
 			$wrap.css({
 				width: compress.w,
 				height: compress.h,
@@ -192,13 +206,42 @@
 				marginTop: -(compress.h / 2)
 			});
 
-			$canvas.css({
-				width: compress.w,
-				height: compress.h
-			});
-			$wrap.append($canvas);
+			$canvas.on('mousedown', function(e){
+				pressd = true;
 
-			var $layer = $('<div class="layer"></div>');
+				var left    = (e.clientX - $canvas.offset().left) * scale;
+				var top     = (e.clientY - $canvas.offset().top) * scale;
+
+				// 生成放大预览区域
+				createScaleArea(this, $wrap, left, top);
+
+				drawMosaic(this, left, top);
+			});
+
+			$canvas.on('mousemove', function(e){
+				if(!pressd){return;}
+
+				var left    = (e.clientX - $canvas.offset().left) * scale;
+				var top     = (e.clientY - $canvas.offset().top) * scale;
+
+				drawMosaic(this, left, top);
+
+				var $scaleArea  = $('.scale-area');
+				var context = $scaleArea[0].getContext('2d');
+
+				// 实时将鼠标的move位置沪指导缩放区域
+				context.clearRect(0, 0, imageWidth, imageHeight);
+				context.drawImage(this, left - imageWidth / 2, top - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
+			});
+
+			$canvas.on('mouseup', function(e){
+				pressd = false;
+
+				$wrap.find('.scale-area').remove();
+			});
+
+
+			// 关闭工作弹层
 			$layer.on('click', function(e){
 				var $target = $(e.target);
 
@@ -210,54 +253,18 @@
 			});
 
 
-			$canvas.on('mousedown', function(e){
-				pressd = true;
-
-				var x       = e.clientX;
-				var y       = e.clientY;
-				var offsetX = $canvas.offset().left;
-				var offsetY = $canvas.offset().top;
-				var left    = x - offsetX;
-				var top     = y - offsetY;
-
-				createScaleArea(this, $wrap, left * scale, top * scale);
-
-				drawMosaic(this, left * scale, top * scale);
-			});
-
-			$canvas.on('mousemove', function(e){
-				if(!pressd){return;}
-
-				var x       = e.clientX;
-				var y       = e.clientY;
-				var offsetX = $canvas.offset().left;
-				var offsetY = $canvas.offset().top;
-				var left    = x - offsetX;
-				var top     = y - offsetY;
-
-				drawMosaic(this, left * scale, top * scale);
-
-				var $scaleArea  = $('.scale-area');
-				var context = $scaleArea[0].getContext('2d');
-				context.clearRect(0, 0, imageWidth, imageHeight);
-				context.drawImage(this, left * scale - imageWidth / 2, top * scale - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
-			});
-
-			$canvas.on('mouseup', function(e){
-				pressd = false;
-
-				$wrap.find('.scale-area').remove();
-			});
-
-			$layer.append($wrap).appendTo('body');
+			$layer.append($wrap.html($canvas)).appendTo('body');
 		}
 
+
+		// 给图片容器内部添加一个编辑按钮 用来触发工作弹层的开关
 		$('.box').append('<button class="edit">编辑</button>');
 		$('.box').on('click', '.edit', function(e){
 			var img     = $(this).parent('.box').find('img')[0];
 			var width   = img.naturalWidth;
 			var height  = img.naturalHeight;
 
+			// 传入需要处理的源图片尺寸信息
 			createWorkSpace(img, width, height);
 		});
 

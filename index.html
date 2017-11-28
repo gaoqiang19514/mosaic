@@ -67,6 +67,7 @@
 		var imageWidth  = 150;
 		var imageHeight = 100;
 		var brushHalf   = 10;
+		var SCALEOFFSET = 10;
 
 		// 找到坐标点基于画布的区域坐标
 		function getAveragePos(canvas, x, y, width, height){
@@ -224,9 +225,10 @@
 				var offsetLeft = e.clientX - $canvas.offset().left;
 				var offsetTop = e.clientY - $canvas.offset().top;
 
-				if(offsetLeft >= (compress.w - imageWidth)){
+				if(offsetLeft + SCALEOFFSET >= (compress.w - imageWidth - 0)){
 					scaleAreaLeft = 0;
 				}
+
 				// 生成预览
 				createScaleArea(this, $wrap, scaleAreaLeft, scaleAreaTop);
 
@@ -247,7 +249,7 @@
 				var offsetLeft = e.clientX - $canvas.offset().left;
 				var offsetTop = e.clientY - $canvas.offset().top;
 
-				if(offsetLeft >= (compress.w - imageWidth)){
+				if(offsetLeft + SCALEOFFSET >= (compress.w - imageWidth)){
 					scaleAreaLeft = 0;
 				}
 

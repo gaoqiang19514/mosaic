@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+    	body{
+    		background: #ccc;
+    	}
+    </style>
+</head>
+<body>
+	
+	<canvas id="J_canvas" width="480" height="300"></canvas>
+
+<script>
+	window.onload = function(){
+		var flag = false;
+		var canvas = document.getElementById('J_canvas');
+		var context = canvas.getContext('2d');
+		var startX, startY, currentX, currentY, r = 10;
+
+		context.lineCap   = "round";　　
+		context.lineJoin  = "round";　
+		context.lineWidth = r ;　　
+
+		function down(e){
+			flag = true;
+
+			startX = e.clientX;
+			startY = e.clientY;
+
+			context.globalCompositeOperation = "destination-out";
+		}
+
+		function move(e){
+			if(!flag){return;}
+
+			currentX = e.clientX;
+			currentY = e.clientY;
+
+			context.save();
+			context.moveTo(startX,startY);
+			context.lineTo(currentX,currentY);
+			context.stroke();
+			context.restore();　
+
+			startX = currentX;
+			startY = currentY;
+		}
+
+		function up(e){
+			flag = false;
+		}
+
+		function initEvents(){
+			canvas.addEventListener('mousedown', down, false);
+			canvas.addEventListener('mousemove', move, false);
+			canvas.addEventListener('mouseup', up, false);
+		}
+
+		function drawImage(img){
+			context.drawImage(img, 0, 0);		
+
+			initEvents();
+		}
+
+		var img = new Image();
+		img.onload = function(){
+			drawImage(this);
+		}
+		img.src = './img/3.jpg';
+
+	};
+</script>
+</body>
+</html>

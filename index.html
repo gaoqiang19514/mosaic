@@ -181,6 +181,11 @@
 			context.clearRect(0, 0, imageWidth, imageHeight);
 			context.drawImage(canvas, x - imageWidth / 2, y - imageHeight / 2, imageWidth, imageHeight, 0, 0, imageWidth, imageHeight);
 		}
+		
+		var clearCanvas = function clearCanvas(canvas, width, height){
+			var context = canvas.getContext("2d");  
+			context.clearRect(0 ,0, width, height);  
+		}
 
 		// 生成弹层 处理马赛克操作
 		function createWorkSpace(img, width, height){
@@ -188,9 +193,11 @@
 				top      = 0,
 				$win     = $(window),
 				$canvas  = $('<canvas></canvas>'),
-				$layer   = $('<div class="layer"></div>'),
+				$layer   = $('<div class="layer"><button class="back">撤销</button></div>'),
 				$wrap    = $('<div class="layer__wrap"></div>');
 			
+			var $backBtn = $layer.find('.back');
+
 			var compress = getCompressSize(width, height, $win.width(), $win.height());
 			var scale    = getScale(width, compress.w);
 
@@ -214,10 +221,37 @@
 				marginLeft: -parseInt(compress.w / 2),
 				marginTop:  -parseInt(compress.h / 2)
 			});
+
+			var newHistory;
+			
+			// 撤销按钮，从历史记录中删除最后个记录，然后遍历执行
+			$backBtn.on('click', function(e){
+				drawHistory.pop();
+
+				// 清空画布
+				
+				clearCanvas($canvas[0], width, height);
+				context.drawImage(img, 0, 0);
+
+				// 怎么执行drawHistory中的记录呢？
+				for(var i = 0; i < drawHistory.length; i++){
+					for(var j = 0; j < drawHistory[i].length; j++){
+						lg(drawHistory[i][j]);
+
+						drawMosaic(drawHistory[i][j].canvas, drawHistory[i][j].left, drawHistory[i][j].top);
+						
+					}
+				}
+
+				return false;
+			});
+			
 			
 			// 鼠标按下
 			$canvas.on('mousedown', function(e){
 				pressd = true;
+
+				newHistory = [];
 				
 				left = parseInt((e.clientX - $canvas.offset().left) * scale);
 				top  = parseInt((e.clientY - $canvas.offset().top) * scale);
@@ -239,6 +273,13 @@
 				// 实时将鼠标的move位置沪指导缩放区域
 				drawScaleArea(this, left, top);
 				drawMosaic(this, left, top);
+
+
+				newHistory.push({
+					canvas: this,
+					left: left,
+					top: top					
+				});
 			});
 			
 			// 鼠标按下同时开始移动 也就是绘制操作
@@ -263,21 +304,34 @@
 				// 实时将鼠标的move位置沪指导缩放区域	
 				drawScaleArea(this, left, top);
 				drawMosaic(this, left, top);
+
+				newHistory.push({
+					canvas: this,
+					left: left,
+					top: top					
+				});
 			});
 			
 			// 鼠标抬起 本次绘制结束
 			$canvas.on('mouseup', function(e){
 				pressd = false;
 				$wrap.find('.scale-area').remove();
+
+				drawHistory.push(newHistory);
+				console.log(drawHistory)
 			});
 
 			// 关闭工作弹层
 			$layer.on('click', function(e){
 				if($(e.target).closest($wrap).length){return;}
 				$layer.remove();
+
+				drawHistory = [];
 			});
 
 			$layer.append($wrap.html($canvas)).appendTo('body');
+
+
 		}
 
 		// 给图片容器内部添加一个编辑按钮 用来触发工作弹层的开关

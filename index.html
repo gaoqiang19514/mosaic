@@ -63,6 +63,9 @@
 	$(function(){
 		var lg          = console.log;
 		
+		// 操作每步绘制操作 有两种选择 字符串形式 函数形式
+		var drawHistory = [];
+		
 		var pressd      = false;
 		var imageWidth  = 150;
 		var imageHeight = 100;
@@ -211,7 +214,8 @@
 				marginLeft: -parseInt(compress.w / 2),
 				marginTop:  -parseInt(compress.h / 2)
 			});
-
+			
+			// 鼠标按下
 			$canvas.on('mousedown', function(e){
 				pressd = true;
 				
@@ -236,7 +240,8 @@
 				drawScaleArea(this, left, top);
 				drawMosaic(this, left, top);
 			});
-
+			
+			// 鼠标按下同时开始移动 也就是绘制操作
 			$canvas.on('mousemove', function(e){
 				if(!pressd){return;}
 				
@@ -259,7 +264,8 @@
 				drawScaleArea(this, left, top);
 				drawMosaic(this, left, top);
 			});
-
+			
+			// 鼠标抬起 本次绘制结束
 			$canvas.on('mouseup', function(e){
 				pressd = false;
 				$wrap.find('.scale-area').remove();

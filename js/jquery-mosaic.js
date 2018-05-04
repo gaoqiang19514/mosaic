@@ -3,8 +3,11 @@ var lg          = console.log;
 
 
 
-function Mosaic(){
+function Mosaic($container){
 
+    this.$container = $container;
+    this.$items = $container.find('.mosaic__item');
+    
     this.init();
 }
 
@@ -16,13 +19,49 @@ Mosaic.prototype.init = function(){
 
 Mosaic.prototype.buildHtml = function(){
 
+    this.$container.on('mouseenter', '.mosaic__item', this.showEditButton);
+    this.$container.on('mouseleave', '.mosaic__item', this.hideEditButton);
+
+    this.$container.on('click', '.mosaic__button--edit', this.openWorkspace);
+
 };
 
+
+
+Mosaic.prototype.showEditButton = function(e){
+    $(this).find('.mosaic__button').addClass('mosaic__button--active');
+
+};
+
+Mosaic.prototype.hideEditButton = function(e){
+    $(this).find('.mosaic__button').removeClass('mosaic__button--active');
+};
+
+Mosaic.prototype.openWorkspace = function(e){
+    
+
+};
+    
 Mosaic.prototype.bindEvents = function(){
 
 };
 
-new Mosaic();
+
+new Mosaic($('.mosaic-container'));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 		
 // 操作每步绘制操作 有两种选择 字符串形式 函数形式
 var drawHistory = [];

@@ -1,23 +1,24 @@
-img{
-    max-width: 100%;
+.mosaic__item{
+    position: relative;
+    display: inline-block;
+}
+
+.mosaic__button{
+    position: absolute;
+    top:0;
+    left: 0;
+
+    display: none;
+
+    cursor: pointer;
+}
+
+.mosaic__button--active{
     display: block;
 }
-.box{
-    width: 250px;
-    display: inline-block;
-    position: relative;
-}
-.box .edit{
-    outline: none;
-    cursor: pointer;
-    border: 0;
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    background: #fff;
-    padding: 5px 10px;
-    border-top-left-radius: 3px;
-}
+
+
+
 .layer{
     position: fixed;
     top: 0;

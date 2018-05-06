@@ -31,13 +31,17 @@
 <li>创建弹出层插入页面</li>
 <li>将实例化传入的img元素绘制到弹出层里面的canvas上</li>
 <li>支持撤销</li>
-<li></li>
 </ol>
 <p>maxW maxH 为容器尺寸
 w h 为需要压缩的原始尺寸</p>
 <p>这里用 容器尺寸除以图片尺寸 得到的是 容器占图片的倍率
 比如 1000 / 2000 = 0.5 也就是容器的尺寸是图片的0.5倍</p>
-<p>那么我们要在压缩的图片上1000的位置画一个点，</p>
+<p>那么我们要在压缩的图片上1000的位置画一个点 该怎么计算呢?
+由于需要完整显示2000的图片在1000的画布上的画，那么图片就被压缩了0.5
+然后你现在需要在图片上绘制1000的位置，那就需要在</p>
+<p>画布 对应 原图的关系就是 1000 - 2000 也就是把2000px的图显示在了1000px的画布上
+那么我们在画布上500px的位置就等于图片上的1000px</p>
+<p>那么我们(e.clientX - offset.left) / 0.5 or (e.clientX - offset.left) * 2</p>
 <pre><code>var getCompressSize = function(maxW, maxH, w, h){
     var scale = this.scale = Math.min(maxW / w, maxH / h, 1);
     return {

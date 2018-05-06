@@ -167,11 +167,6 @@ Mosaic.prototype.bindEvents = function(){
         offset    = that.$content.offset();
         scrollTop = $(window).scrollTop();
 
-        // 这里的that.scale是缩放比例 这个比例是 maxW / imgW 得到的，也就是容器宽度 / 图片宽度 所得到的是 容器所占原图的多少
-        // 比如容器是1000px 原图是2000 那么 1000 / 2000 = 0.5 也就是容器占原图的0.5
-        // 那么这里得到的坐标就需要除以这个 0.5 也就是你在容器上绘制的 1000px 就应该对应 2000px 因为你的图片被压缩一半
-        // 实际所绘制的距离 如果不除的话绘制的位置就比你想要的少0.5 也就是你以为绘制了1000 其实绘制了2000 如果用 1000 / 0.5 = 2000
-
         that.drawMosaic((e.clientX - offset.left) / that.scale, (e.clientY - offset.top) / that.scale);
         step = [];
 
@@ -222,7 +217,7 @@ Mosaic.prototype.bindEvents = function(){
 
 // 获取图片的缩放尺寸
 Mosaic.prototype.getCompressSize = function(maxW, maxH, w, h){
-    var scale = this.scale = Math.min(maxW / w, maxH / h, 1);
+    var scale = this.scale = Math.min(maxW / w, maxH / h, 1) / 1.1;
     return {
         width: Math.round(w * scale),
         height: Math.round(h * scale),

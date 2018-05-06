@@ -33,6 +33,18 @@
 <li>支持撤销</li>
 <li></li>
 </ol>
-
+<p>maxW maxH 为容器尺寸
+w h 为需要压缩的原始尺寸</p>
+<p>这里用 容器尺寸除以图片尺寸 得到的是 容器占图片的倍率
+比如 1000 / 2000 = 0.5 也就是容器的尺寸是图片的0.5倍</p>
+<p>那么我们要在压缩的图片上1000的位置画一个点，</p>
+<pre><code>var getCompressSize = function(maxW, maxH, w, h){
+    var scale = this.scale = Math.min(maxW / w, maxH / h, 1);
+    return {
+        width: Math.round(w * scale),
+        height: Math.round(h * scale),
+    };
+};
+</code></pre>
       </body>
     </html>

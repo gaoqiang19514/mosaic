@@ -3,11 +3,21 @@ var lg          = console.log;
 
 
 
-function Mosaic($container){
+function Mosaic($item, $mosaicContainer){
 
-    this.$container = $container;
-    this.$items = $container.find('.mosaic__item');
-    
+    this.$item      = $item;
+    this.$container = $mosaicContainer;
+    this.$items     = $mosaicContainer.find('.mosaic__item');
+
+
+    this.brushHalf  = 10;
+    var SCALEOFFSET = 10;
+
+    this.drawSteps  = [];
+
+    this.target     = 'body';
+    this.template   = $('#J_mosaic_workspace_template').text();
+
     this.init();
 }
 
@@ -16,43 +26,292 @@ Mosaic.prototype.init = function(){
     this.bindEvents();
 };
 
-
 Mosaic.prototype.buildHtml = function(){
+    var that = this;
 
-    this.$container.on('mouseenter', '.mosaic__item', this.showEditButton);
-    this.$container.on('mouseleave', '.mosaic__item', this.hideEditButton);
+    var $template = $(that.template);
 
-    this.$container.on('click', '.mosaic__button--edit', this.openWorkspace);
+    that.$content = $template.find('.mosaic-workspace-content');
+    that.$canvas  = $template.find('.mosaic-workspace-canvas');
+    that.$close   = $template.find('.mosaic-workspace-close');
+    that.$back    = $template.find('.mosaic-workspace-back-btn');
 
-};
+    that.canvas   = that.$canvas[0];
+    that.context  = that.canvas.getContext('2d');
+    that.canvasW  = 0;
+    that.canvasH  = 0;
 
-
-
-Mosaic.prototype.showEditButton = function(e){
-    $(this).find('.mosaic__button').addClass('mosaic__button--active');
-
-};
-
-Mosaic.prototype.hideEditButton = function(e){
-    $(this).find('.mosaic__button').removeClass('mosaic__button--active');
-};
-
-Mosaic.prototype.openWorkspace = function(e){
     
+    var src = that.$item.find('.mosaic__img').attr('src');
+    
+    var promise = new Promise(function(resolve, reject){
+
+        that.getImageSize(src, function(data){
+            that.$canvas
+                .css({
+                    width: data.width,
+                    height: data.height
+                })
+                .attr({
+                    'width': data.width,
+                    'height': data.height
+                });
+
+            that.$content.css({
+                width: data.width,
+                height: data.height
+            });
+
+            that.canvasW  = that.$canvas.width();
+            that.canvasH  = that.$canvas.height();
+
+            resolve(data);
+        });
+
+    });
+
+    promise.then(function(data){
+        that.img = data.img
+        var context = that.$canvas[0].getContext('2d');
+        context.drawImage(data.img, 0, 0);
+
+        that.$workspace = $template.appendTo(that.target);
+    });
 
 };
-    
+
 Mosaic.prototype.bindEvents = function(){
+    var that = this;
 
+    // 关闭工作台
+    that.$close.on('click', function(e){
+        that.$workspace.remove();
+    });
+
+    that.resetDrag();
+    
+    that.$content.on('mousedown', function(e){
+        // 阻止back btn 执行了content上的mousedown
+        var $target = $(e.target);
+        if($target.closest('.mosaic-workspace-back-btn').length){return;}
+
+        step        = [];
+        that.isDrag = true;
+        that.start  = { x:  e.clientX, y: e.clientY };
+    });
+
+    var step   = [];
+    var offset = {x: 0, y: 0};
+    var left   = 0, top = 0;
+    $(document).on('mousemove', function(e){
+        if(!that.isDrag){return;}
+
+        that.moving = {
+            x: e.clientX - that.start.x + that.last.x,
+            y: e.clientY - that.start.y + that.last.y
+        };
+
+        offset = that.$content.offset();
+        left = e.clientX - offset.left;
+        top = e.clientY - offset.top;
+
+        that.drawCoordinateLine(e.clientX, e.clientY);
+
+        var func = (function(_left, _top){
+            return function(){
+                that.drawMosaic(that.canvas, _left, _top);
+            };
+        })(left, top);
+
+        // var func = function(){
+        //     that.drawMosaic(that.canvas, left, top);
+        // };
+
+        step.push(func);
+
+        func();
+
+        return false;
+    });
+    
+    $(document).on('mouseup', function(e){
+        if(that.isDrag){
+            that.isDrag = false;
+            that.last = {
+                x: that.moving.x,
+                y: that.moving.y
+            };
+
+            that.drawSteps.push(step);
+            that.clearCoordinateLine();
+        }
+    });
+
+    that.$back.on('click', function(e){
+        that.redraw();
+        return false;
+    });
+};
+
+Mosaic.prototype.clearCanvas = function(){
+    this.context.clearRect(0, 0, this.canvasW, this.canvasH);  
+};
+
+Mosaic.prototype.redraw = function(){
+    var that = this;
+
+    that.clearCanvas();
+    that.context.drawImage(that.img, 0, 0);
+
+    that.drawSteps.pop();
+
+    $.each(that.drawSteps, function(){
+        $.each(this, function(){
+            
+            this();
+        })
+    });
+};
+
+Mosaic.prototype.drawCoordinateLine = function(x, y){
+    var that = this;
+
+    if(!that.$coordinateLine){
+        that.$coordinateLine = $('<div class="coordinate-line"><div class="coordinate-line-x"></div><div class="coordinate-line-y"></div></div>');
+        that.$coordinateLineX = that.$coordinateLine.find('.coordinate-line-x');
+        that.$coordinateLineY = that.$coordinateLine.find('.coordinate-line-y');
+        that.$coordinateLine.appendTo('body');
+    }
+    that.$coordinateLineX.css({
+        left: x
+    });
+    that.$coordinateLineY.css({
+        top: y
+    });
+};
+
+Mosaic.prototype.clearCoordinateLine = function(x, y){
+    if(this.$coordinateLine){
+        this.$coordinateLine.remove();
+        this.$coordinateLine = null;
+    }
+};
+
+Mosaic.prototype.resetDrag = function(sizeData){
+    this.isDrag = false;
+    this.start  = {x: 0, y: 0};
+    this.moving = {x: 0, y: 0};
+    this.last   = {x: 0, y: 0};
+};
+
+Mosaic.prototype.getImageSize = function(src, onload){
+    var img = new Image;
+
+    img.onload = function(e){
+        onload &&　onload({
+            img: this,
+            width: this.naturalWidth,
+            height: this.naturalHeight
+        });
+    };
+
+    img.src = src;
+};
+
+// 找到坐标点基于画布的区域坐标
+Mosaic.prototype.getAveragePos = function(canvas, x, y, width, height){
+    var i = 1, j = 1, left = 0, right = 0, top = 0, bottom = 0;
+    var wLen = canvas.width / width;
+    var hLen = canvas.height / height;
+
+    for(; i <= wLen; i++){
+        left  = i * width - width;
+        right = i * width;
+
+        if(x >= left && x <= right){break;}
+    }
+
+    for(; j <= hLen; j++){
+        top    = j * height - height;
+        bottom = j * height;
+
+        if(y >= top && y <= bottom){break;}
+    }
+
+    return {
+        x: (i - 1) * width,
+        y: (j - 1) * height
+    }
+};
+
+Mosaic.prototype.drawMosaic = function(canvas, x, y){
+
+    var r = 0, g = 0, b = 0, a = 0;
+    var width   = this.brushHalf * 2;
+    var height  = this.brushHalf * 2;
+    var pos     = this.getAveragePos(canvas, x, y, width, height);
+
+    var context = canvas.getContext('2d');
+    var imgData = context.getImageData(pos.x, pos.y, width, height);
+
+    var data = imgData.data;
+
+    // 累加imageData的rgba色值
+    var i = 0;
+    for(; i < data.length; i += 4){
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        a += data[i + 3];
+    }
+
+    // 计算区域平均rgba数值 然后创建一个imageData对象 将计算的平均色值赋值给它
+    r /= data.length / 4;
+    g /= data.length / 4;
+    b /= data.length / 4;
+    a /= data.length / 4;
+
+    var newImgData = context.createImageData(width, height);
+    var j = 0;
+    for(; j < data.length; j += 4){
+        newImgData.data[j] 	   = r;
+        newImgData.data[j + 1] = g;
+        newImgData.data[j + 2] = b;
+        newImgData.data[j + 3] = a;
+    }
+
+    context.putImageData(newImgData, pos.x, pos.y);
 };
 
 
-new Mosaic($('.mosaic-container'));
+
+var initMosaicFromDOM = function(mosaicContainerSelector){
+
+    var onThumbnailsClick = function(e){
+        var $target = $(e.target);
+
+        var $clickedListItem = $target.closest('.mosaic__item');
+
+        if(!$clickedListItem.length){return;}
+
+        var $clickedParent = $clickedListItem.parent();
+
+        openWorkspace($clickedListItem, $clickedParent);
+    };
+
+    var openWorkspace = function($item, $mosaicContainer){
+        new Mosaic($item, $mosaicContainer);
+    };
+
+    var mosaicElements = $(mosaicContainerSelector);
+
+    for (var i = 0, l = mosaicElements.length; i < l; i++) {
+        mosaicElements[i].onclick = onThumbnailsClick;
+    }
+};
 
 
-
-
-
+initMosaicFromDOM('.mosaic-container');
 
 
 

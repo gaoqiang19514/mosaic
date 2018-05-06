@@ -1,4 +1,8 @@
 
+img{
+    max-width: 100%;;
+}
+
 .mosaic__item{
     position: relative;
     display: inline-block;
@@ -63,8 +67,7 @@
 .mosaic-workspace-content{
     position: relative;
     width: 500px;
-    padding: 10px;
-    margin: 20px auto;
+    margin: 0 auto;
     background: #fff;
 }
 .mosaic-workspace-canvas{

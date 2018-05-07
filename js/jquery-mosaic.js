@@ -53,7 +53,7 @@ Mosaic.prototype.buildHtml = function(){
             that.canvasW = that.naturalW = data.width;
             that.canvasH = that.naturalH = data.height;
 
-            var compress = that.compress = that.getCompressSize(that.winW, that.winH, data.width, data.height);
+            var compress = that.compress = that.getCompressSize(data.width, data.height);
 
             that.$canvas
                 .css({
@@ -216,12 +216,16 @@ Mosaic.prototype.bindEvents = function(){
 
 
 // 获取图片的缩放尺寸
-Mosaic.prototype.getCompressSize = function(maxW, maxH, w, h){
-    var scale = this.scale = Math.min(maxW / w, maxH / h, 1) / 1.1;
+Mosaic.prototype.getCompressSize = function(w, h){
+    var ratio = this.getPantographRatio(this.winW, this.winH, w, h);
     return {
-        width: Math.round(w * scale),
-        height: Math.round(h * scale),
+        width: Math.round(w * ratio),
+        height: Math.round(h * ratio),
     };
+};
+
+Mosaic.prototype.getPantographRatio = function(maxW, maxH, w, h){
+    return Math.min(maxW / w, maxH / h, 1) / 1.1;
 };
 
 Mosaic.prototype.clearCanvas = function(){

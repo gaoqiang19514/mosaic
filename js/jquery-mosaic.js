@@ -1,6 +1,12 @@
 var lg          = console.log;
 
 
+var commandStack = [];
+var makeCommand = function(func){
+    return function(){
+        func();
+    };
+};
 
 
 function Mosaic($item, $mosaicContainer){
@@ -11,7 +17,7 @@ function Mosaic($item, $mosaicContainer){
 
     this.brushHalf  = 10;
 
-    this.drawSteps  = [];
+    this.commandStack = [];
 
     this.target     = 'body';
     this.template   = $('#J_mosaic_workspace_template').text();
@@ -152,10 +158,11 @@ Mosaic.prototype.bindEvents = function(){
     var that = this;
 
     var 
+        command = null,
+        commandList = [],
         left   = 0, 
         top    = 0, 
         scrollTop = 0,
-        step   = [], 
         offset = { x: 0, y: 0 };
 
     that.$content.on('mousedown', function(e){
@@ -167,8 +174,13 @@ Mosaic.prototype.bindEvents = function(){
         offset    = that.$content.offset();
         scrollTop = $(window).scrollTop();
 
-        that.drawMosaic((e.clientX - offset.left) / that.scale, (e.clientY - offset.top) / that.scale);
-        step = [];
+        // 创建命令 执行命令 将命令入栈
+        commandList = [];
+        command = makeCommand(function(){
+            that.drawMosaic((e.clientX - offset.left) / that.scale, (e.clientY - offset.top) / that.scale);
+        });
+        command();
+        commandList.push(command);
 
         that.createCoordinateLine(e.clientX, e.clientY);
     });
@@ -179,14 +191,13 @@ Mosaic.prototype.bindEvents = function(){
         offset    = that.$content.offset();
         scrollTop = $(window).scrollTop();
 
-        var func = (function(_left, _top){
-            return function(){
-                that.drawMosaic(_left, _top);
-            };
-        })((e.clientX - offset.left) / that.scale, (e.clientY - offset.top + scrollTop) / that.scale);
 
-        func();
-        step.push(func);
+        // 创建命令 执行命令 将命令入栈
+        command = makeCommand(function(){
+            that.drawMosaic((e.clientX - offset.left) / that.scale, (e.clientY - offset.top + scrollTop) / that.scale);
+        });
+        command();
+        commandList.push(command);
 
         that.drawCoordinateLine(e.clientX, e.clientY);
 
@@ -197,8 +208,9 @@ Mosaic.prototype.bindEvents = function(){
         if(that.isDrag){
             that.isDrag = false;
             
-            that.drawSteps.push(step);
-            
+            // 压入命令栈
+            that.commandStack.push(commandList);
+
             that.clearCoordinateLine();
         }
     });
@@ -214,10 +226,29 @@ Mosaic.prototype.bindEvents = function(){
     });
 };
 
+// 回到上一步
+Mosaic.prototype.redraw = function(){
+    var that = this;
+
+    if(!that.commandStack.length){
+        alert('没有可以撤回的了');
+        return;
+    }
+
+    that.clearCanvas();
+    that.context.drawImage(that.img, 0, 0);
+
+    that.commandStack.pop();
+    $.each(that.commandStack, function(){
+        $.each(this, function(){
+            this();
+        })
+    });
+};
 
 // 获取图片的缩放尺寸
 Mosaic.prototype.getCompressSize = function(w, h){
-    var ratio = this.getPantographRatio(this.winW, this.winH, w, h);
+    var ratio = this.scale = this.getPantographRatio(this.winW, this.winH, w, h);
     return {
         width: Math.round(w * ratio),
         height: Math.round(h * ratio),
@@ -230,27 +261,6 @@ Mosaic.prototype.getPantographRatio = function(maxW, maxH, w, h){
 
 Mosaic.prototype.clearCanvas = function(){
     this.context.clearRect(0, 0, this.canvasW, this.canvasH);  
-};
-
-// 回到上一步
-Mosaic.prototype.redraw = function(){
-    var that = this;
-
-    if(!that.drawSteps.length){
-        alert('没有可以撤回的了');
-        return;
-    }
-
-    that.clearCanvas();
-    that.context.drawImage(that.img, 0, 0);
-
-    that.drawSteps.pop();
-
-    $.each(that.drawSteps, function(){
-        $.each(this, function(){
-            this();
-        })
-    });
 };
 
 
